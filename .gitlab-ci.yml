@@ -1,0 +1,71 @@
+# Gamitin ang opisyal na Playwright image na may kasamang Java at Maven v1.49.0 o mas bago
+image: ://microsoft.com
+
+# I-cache ang Maven dependencies para mas mabilis ang susunod na mga pipeline run
+cache:
+  paths:
+    - .m2/repository
+
+## Common Variables ##
+variables:
+  # Ituro ang Maven local repository sa loob ng project folder para ma-cache ito
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  PROJECTS:
+    description: Select from the available projects to run automated tests
+    value: "Playwright-Testng-Project-Java"
+    options:
+      - "Playwright-Testng-Project-Java"
+      -
+  FEATURE:
+    description: Robot Framework tag to run (passed to -i)
+    value: "ExampleTest2"
+    options:
+      - "BaseTest"
+      - "ExampleTest"
+      - "ExampleTest1"
+      - "ExampleTest2"
+
+  TEST_PATH: ${PROJECTS}/src/test/java/tests
+  RESULTS_PATH: ${PROJECTS}/src/results
+
+
+stages:
+  - test
+
+
+playwright-testng-tests:
+  stage: test
+  script:
+    # 1. I-download ang dependencies at i-compile ang project nang hindi muna pinapatakbo ang tests
+    - mvn clean compile
+
+    # 2. Pilitin ang Playwright na i-install ang mga browser sa loob ng Docker container (kung kinakailangan)
+    - mvn exec:java -e -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps"
+
+    # 3. Patakbuhin ang TestNG suite gamit ang Maven Surefire plugin
+    # Ang '-Dheadless=true' ay siguradong nakabukas dahil walang UI ang GitLab CI runners
+    - mvn test -Dheadless=true
+
+  # I-save ang mga test reports (hal. Surefire o ExtentReports) para ma-download pagkatapos ng test
+.test_common:
+  artifacts:
+    when: always
+    paths:
+      - ${RESULTS_PATH}
+    expire_in: 1 week
+
+.singlefeatures_common:
+  script:
+    - echo -e "\e[34m=======================================================\e[0m"
+    - echo "Executing Test"
+    - playwright -d ${RESULTS_PATH} -i ${FEATURE} ${TEST_PATH}
+    ## With an env file: robot -V env.${ENV_NO}.yaml -d ${RESULTS_PATH} -i ${FEATURE} ${TEST_PATH}
+    ## Single file:      robot Sample1_Project/tests/web/tests/BasicTest.robot
+
+## Jobs ##
+run_tests:
+  stage: test
+  extends:
+    - .install_package
+    - .test_common
+    - .singlefeatures_common

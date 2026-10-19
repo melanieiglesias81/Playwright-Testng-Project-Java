@@ -1,5 +1,7 @@
 package tests;
 
+import com.microsoft.playwright.*;
+import org.testng.*;
 import com.microsoft.playwright.Page.GetByRoleOptions;
 import com.microsoft.playwright.options.AriaRole;
 import org.testng.annotations.Test;
